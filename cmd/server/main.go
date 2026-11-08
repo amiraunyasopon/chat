@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
 	"net"
+	"strings"
 )
 
 func handleConn(conn net.Conn) {
@@ -23,10 +25,32 @@ func handleConn(conn net.Conn) {
 			return
 		}
 
-		_, err = conn.Write([]byte(message))
-		if err != nil {
-			log.Printf("Write error: %v", err)
+		line := strings.TrimSpace(message)
+		if line == "" {
+			continue
+		}
+
+		parts := strings.SplitN(line, " ", 2)
+		cmd := strings.ToUpper(parts[0])
+		args := ""
+		if len(parts) > 1 {
+			args = parts[1]
+		}
+
+		switch cmd {
+		case "PING":
+			fmt.Fprintln(conn, "PONG")
+		case "ECHO":
+			if args == "" {
+				fmt.Fprintln(conn, "ERR usage: ECHO <text>")
+			} else {
+				fmt.Fprintln(conn, "OK", args)
+			}
+		case "QUIT":
+			fmt.Fprintln(conn, "BYE")
 			return
+		default:
+			fmt.Fprintf(conn, "ERR unknown command %q\n", cmd)
 		}
 	}
 }
@@ -50,12 +74,3 @@ func main() {
 	}
 
 }
-
-/*
-echo server
-- listener, accept loop, goroutine per client, echo bytes back
-learn:
-- tcp is a byte stream not messages. connections are long lived and read returning io.eof means the peer closed
-test
--two or three nc sessions at once
-*/
