@@ -48,6 +48,5 @@ func (h *Hub) Run() {
 				c.Send(line)
 			}
 		}
-
 	}
 }
