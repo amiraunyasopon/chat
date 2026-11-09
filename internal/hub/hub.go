@@ -3,6 +3,7 @@ package hub
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"chat/internal/client"
 )
@@ -28,14 +29,16 @@ func (leaveEvent) isEvent()   {}
 func (messageEvent) isEvent() {}
 
 type Hub struct {
-	clients map[*client.Client]bool
-	events  chan Event
+	clients    map[*client.Client]string
+	guestCount int
+	events     chan Event
 }
 
 func New() *Hub {
 	return &Hub{
-		clients: make(map[*client.Client]bool),
-		events:  make(chan Event, 16),
+		clients:    make(map[*client.Client]string),
+		guestCount: 0,
+		events:     make(chan Event, 16),
 	}
 }
 
@@ -47,21 +50,25 @@ func (h *Hub) Run() {
 	for e := range h.events {
 		switch ev := e.(type) {
 		case joinEvent:
-			h.clients[ev.c] = true
-			line := fmt.Sprintf("* %s joined", ev.c.Conn.RemoteAddr())
+			name := h.newGuestName()
+			h.clients[ev.c] = name
+			ev.c.Send(fmt.Sprintf("* Welcome, %s. Use NICK <name> to change it.", name))
+			line := fmt.Sprintf("* %s joined", name)
 			h.sendToAllExcept(ev.c, line)
 			log.Printf("Hub: client joined (%d connected)", len(h.clients))
 		case leaveEvent:
-			if h.clients[ev.c] {
-				line := fmt.Sprintf("* %s left", ev.c.Conn.RemoteAddr())
+			if name, ok := h.clients[ev.c]; ok {
+				line := fmt.Sprintf("* %s left", name)
 				delete(h.clients, ev.c)
 				ev.c.Shutdown()
 				h.sendToAllExcept(ev.c, line)
 				log.Printf("Hub: client left (%d connected)", len(h.clients))
 			}
 		case messageEvent:
-			line := fmt.Sprintf("%s: %s", ev.m.From.Conn.RemoteAddr(), ev.m.Text)
-			h.sendToAllExcept(ev.m.From, line)
+			if name, ok := h.clients[ev.m.From]; ok {
+				line := fmt.Sprintf("%s: %s", name, ev.m.Text)
+				h.sendToAllExcept(ev.m.From, line)
+			}
 		default:
 			log.Printf("Hub: unknown event type %T", e)
 		}
@@ -74,5 +81,24 @@ func (h *Hub) sendToAllExcept(skip *client.Client, line string) {
 			continue
 		}
 		c.Send(line)
+	}
+}
+
+func (h *Hub) nameTaken(name string, except *client.Client) bool {
+	for c, n := range h.clients {
+		if c != except && strings.EqualFold(n, name) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Hub) newGuestName() string {
+	for {
+		h.guestCount++
+		name := fmt.Sprintf("guest%d", h.guestCount)
+		if !h.nameTaken(name, nil) {
+			return name
+		}
 	}
 }
