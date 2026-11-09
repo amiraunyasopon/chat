@@ -34,6 +34,9 @@ func ParseDM(args string) (DM, bool) {
 
 	parts := strings.SplitN(line, " ", 2)
 	dm := DM{To: parts[0]}
+	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
+		return DM{}, false
+	}
 	if len(parts) > 1 {
 		dm.Message = parts[1]
 	}

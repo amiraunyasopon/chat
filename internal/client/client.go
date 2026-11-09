@@ -121,6 +121,8 @@ func (c *Client) Run() {
 			} else {
 				if dm, ok := protocol.ParseDM(cmd.Args); ok {
 					c.directMessage(DirectMessage{From: c, To: dm.To, Text: dm.Message})
+				} else {
+					c.Send("ERR usage: DM <user> <text>")
 				}
 			}
 		case "QUIT":

@@ -74,6 +74,7 @@ func (h *Hub) Run() {
 		case leaveEvent:
 			if name, ok := h.clients[ev.c]; ok {
 				line := fmt.Sprintf("* %s left", name)
+				delete(h.nicks, h.clients[ev.c])
 				delete(h.clients, ev.c)
 				ev.c.Shutdown()
 				h.sendToAllExcept(ev.c, line)
@@ -93,8 +94,13 @@ func (h *Hub) Run() {
 			}
 		case directMessageEvent:
 			if name, ok := h.clients[ev.d.From]; ok {
-				line := fmt.Sprintf("%s: %s", name, ev.d.Text)
-				h.nicks[ev.d.To].Send(line)
+				line := fmt.Sprintf("%s (dm): %s", name, ev.d.Text)
+				recipient, ok := h.findNick(ev.d.To)
+				if !ok {
+					ev.d.From.Send("ERR unknown recipient")
+					continue
+				}
+				recipient.Send(line)
 			}
 		default:
 			log.Printf("Hub: unknown event type %T", e)
@@ -118,6 +124,15 @@ func (h *Hub) nameTaken(name string, except *client.Client) bool {
 		}
 	}
 	return false
+}
+
+func (h *Hub) findNick(name string) (*client.Client, bool) {
+	for nick, c := range h.nicks {
+		if strings.EqualFold(nick, name) {
+			return c, true
+		}
+	}
+	return nil, false
 }
 
 func (h *Hub) newGuestName() string {
