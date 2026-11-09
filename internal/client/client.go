@@ -22,21 +22,29 @@ type Nickname struct {
 	Nickname string
 }
 
-type Client struct {
-	Conn      net.Conn
-	out       chan string
-	broadcast func(Message)
-	leave     func(*Client)
-	nickname  func(Nickname)
+type DirectMessage struct {
+	From *Client
+	To   string
+	Text string
 }
 
-func New(conn net.Conn, broadcast func(Message), leave func(*Client), nickname func(Nickname)) *Client {
+type Client struct {
+	Conn          net.Conn
+	out           chan string
+	broadcast     func(Message)
+	leave         func(*Client)
+	nickname      func(Nickname)
+	directMessage func(DirectMessage)
+}
+
+func New(conn net.Conn, broadcast func(Message), leave func(*Client), nickname func(Nickname), directMessage func(DirectMessage)) *Client {
 	return &Client{
-		Conn:      conn,
-		out:       make(chan string, outBuffer),
-		broadcast: broadcast,
-		leave:     leave,
-		nickname:  nickname,
+		Conn:          conn,
+		out:           make(chan string, outBuffer),
+		broadcast:     broadcast,
+		leave:         leave,
+		nickname:      nickname,
+		directMessage: directMessage,
 	}
 }
 
@@ -81,7 +89,7 @@ func (c *Client) Run() {
 			return
 		}
 
-		cmd, ok := protocol.Parse(message)
+		cmd, ok := protocol.ParseCommand(message)
 		if !ok {
 			continue
 		}
@@ -106,6 +114,14 @@ func (c *Client) Run() {
 				c.Send("ERR usage: NICK <text>")
 			} else {
 				c.nickname(Nickname{User: c, Nickname: cmd.Args})
+			}
+		case "DM":
+			if cmd.Args == "" {
+				c.Send("ERR usage: DM <user> <text>")
+			} else {
+				if dm, ok := protocol.ParseDM(cmd.Args); ok {
+					c.directMessage(DirectMessage{From: c, To: dm.To, Text: dm.Message})
+				}
 			}
 		case "QUIT":
 			c.Send("BYE")

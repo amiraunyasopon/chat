@@ -7,7 +7,12 @@ type Command struct {
 	Args string
 }
 
-func Parse(message string) (Command, bool) {
+type DM struct {
+	To      string
+	Message string
+}
+
+func ParseCommand(message string) (Command, bool) {
 	line := strings.TrimSpace(message)
 	if line == "" {
 		return Command{}, false
@@ -19,4 +24,18 @@ func Parse(message string) (Command, bool) {
 		cmd.Args = parts[1]
 	}
 	return cmd, true
+}
+
+func ParseDM(args string) (DM, bool) {
+	line := strings.TrimSpace(args)
+	if line == "" {
+		return DM{}, false
+	}
+
+	parts := strings.SplitN(line, " ", 2)
+	dm := DM{To: parts[0]}
+	if len(parts) > 1 {
+		dm.Message = parts[1]
+	}
+	return dm, true
 }

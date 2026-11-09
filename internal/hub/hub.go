@@ -28,13 +28,19 @@ type nickEvent struct {
 	n client.Nickname
 }
 
-func (joinEvent) isEvent()    {}
-func (leaveEvent) isEvent()   {}
-func (messageEvent) isEvent() {}
-func (nickEvent) isEvent()    {}
+type directMessageEvent struct {
+	d client.DirectMessage
+}
+
+func (joinEvent) isEvent()          {}
+func (leaveEvent) isEvent()         {}
+func (messageEvent) isEvent()       {}
+func (nickEvent) isEvent()          {}
+func (directMessageEvent) isEvent() {}
 
 type Hub struct {
 	clients    map[*client.Client]string
+	nicks      map[string]*client.Client
 	guestCount int
 	events     chan Event
 }
@@ -42,15 +48,17 @@ type Hub struct {
 func New() *Hub {
 	return &Hub{
 		clients:    make(map[*client.Client]string),
+		nicks:      make(map[string]*client.Client),
 		guestCount: 0,
 		events:     make(chan Event, 16),
 	}
 }
 
-func (h *Hub) Register(c *client.Client)   { h.events <- joinEvent{c: c} }
-func (h *Hub) Unregister(c *client.Client) { h.events <- leaveEvent{c: c} }
-func (h *Hub) Broadcast(m client.Message)  { h.events <- messageEvent{m: m} }
-func (h *Hub) Nickname(n client.Nickname)  { h.events <- nickEvent{n: n} }
+func (h *Hub) Register(c *client.Client)            { h.events <- joinEvent{c: c} }
+func (h *Hub) Unregister(c *client.Client)          { h.events <- leaveEvent{c: c} }
+func (h *Hub) Broadcast(m client.Message)           { h.events <- messageEvent{m: m} }
+func (h *Hub) Nickname(n client.Nickname)           { h.events <- nickEvent{n: n} }
+func (h *Hub) DirectMessage(d client.DirectMessage) { h.events <- directMessageEvent{d: d} }
 
 func (h *Hub) Run() {
 	for e := range h.events {
@@ -58,6 +66,7 @@ func (h *Hub) Run() {
 		case joinEvent:
 			name := h.newGuestName()
 			h.clients[ev.c] = name
+			h.nicks[name] = ev.c
 			ev.c.Send(fmt.Sprintf("* Welcome, %s. Use NICK <name> to change it.", name))
 			line := fmt.Sprintf("* %s joined", name)
 			h.sendToAllExcept(ev.c, line)
@@ -78,7 +87,14 @@ func (h *Hub) Run() {
 		case nickEvent:
 			name := ev.n.Nickname
 			if !h.nameTaken(name, ev.n.User) {
+				delete(h.nicks, h.clients[ev.n.User])
 				h.clients[ev.n.User] = name
+				h.nicks[name] = ev.n.User
+			}
+		case directMessageEvent:
+			if name, ok := h.clients[ev.d.From]; ok {
+				line := fmt.Sprintf("%s: %s", name, ev.d.Text)
+				h.nicks[ev.d.To].Send(line)
 			}
 		default:
 			log.Printf("Hub: unknown event type %T", e)
