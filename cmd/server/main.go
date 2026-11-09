@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	log.Fatal(server.Run(":8090"))
+	log.Fatal(server.Run())
 }

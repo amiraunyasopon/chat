@@ -3,13 +3,19 @@ package server
 import (
 	"log"
 	"net"
+	"os"
 
 	"chat/internal/client"
 	"chat/internal/hub"
 )
 
-func Run(addr string) error {
-	listener, err := net.Listen("tcp", addr)
+func Run() error {
+	port := "8080"
+	if len(os.Args) > 1 {
+		port = os.Args[1]
+	}
+
+	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		return err
 	}
@@ -18,7 +24,7 @@ func Run(addr string) error {
 	h := hub.New()
 	go h.Run()
 
-	log.Println("Chat server listening on", addr)
+	log.Println("Chat server listening on", ":"+port)
 
 	for {
 		conn, err := listener.Accept()
@@ -26,7 +32,7 @@ func Run(addr string) error {
 			log.Println("Error accepting conn:", err)
 			continue
 		}
-		cl := client.New(conn, h.Broadcast, h.Unregister, h.Nickname)
+		cl := client.New(conn, h.Broadcast, h.Unregister, h.Nickname, h.DirectMessage)
 		h.Register(cl)
 		go cl.WriteLoop()
 		go cl.Run()
