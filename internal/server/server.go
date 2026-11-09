@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"chat/internal/client"
+	"chat/internal/hub"
 )
 
 func Run(addr string) error {
@@ -14,7 +15,10 @@ func Run(addr string) error {
 	}
 	defer listener.Close()
 
-	log.Println("Echo server listening on", addr)
+	h := hub.New()
+	go h.Run()
+
+	log.Println("Chat server listening on", addr)
 
 	for {
 		conn, err := listener.Accept()
@@ -22,6 +26,9 @@ func Run(addr string) error {
 			log.Println("Error accepting conn:", err)
 			continue
 		}
-		go client.New(conn).Run()
+		cl := client.New(conn, h.Unregister)
+		h.Register(cl)
+		go cl.WriteLoop()
+		go cl.Run()
 	}
 }

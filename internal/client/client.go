@@ -10,16 +10,48 @@ import (
 	"chat/internal/protocol"
 )
 
+const outBuffer = 16
+
 type Client struct {
-	Conn net.Conn
+	Conn  net.Conn
+	out   chan string
+	leave func(*Client)
 }
 
-func New(conn net.Conn) *Client {
-	return &Client{Conn: conn}
+func New(conn net.Conn, leave func(*Client)) *Client {
+	return &Client{
+		Conn:  conn,
+		out:   make(chan string, outBuffer),
+		leave: leave,
+	}
+}
+
+func (c *Client) Send(line string) bool {
+	select {
+	case c.out <- line:
+		return true
+	default:
+		c.Conn.Close()
+		return false
+	}
+}
+
+func (c *Client) Shutdown() {
+	close(c.out)
+}
+
+func (c *Client) WriteLoop() {
+	defer c.Conn.Close()
+	for line := range c.out {
+		if _, err := fmt.Fprintln(c.Conn, line); err != nil {
+			log.Printf("Write error: %v", err)
+			return
+		}
+	}
 }
 
 func (c *Client) Run() {
-	defer c.Conn.Close()
+	defer c.leave(c)
 	log.Println("Client connected:", c.Conn.RemoteAddr())
 
 	reader := bufio.NewReader(c.Conn)
@@ -41,18 +73,18 @@ func (c *Client) Run() {
 
 		switch cmd.Name {
 		case "PING":
-			fmt.Fprintln(c.Conn, "PONG")
+			c.Send("PONG")
 		case "ECHO":
 			if cmd.Args == "" {
-				fmt.Fprintln(c.Conn, "ERR usage: ECHO <text>")
+				c.Send("ERR usage: ECHO <text>")
 			} else {
-				fmt.Fprintln(c.Conn, "OK", cmd.Args)
+				c.Send("OK " + cmd.Args)
 			}
 		case "QUIT":
-			fmt.Fprintln(c.Conn, "BYE")
+			c.Send("BYE")
 			return
 		default:
-			fmt.Fprintf(c.Conn, "ERR unknown command %q\n", cmd.Name)
+			c.Send(fmt.Sprintf("ERR unknown command %q", cmd.Name))
 		}
 	}
 }
