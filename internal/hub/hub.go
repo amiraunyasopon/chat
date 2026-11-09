@@ -24,9 +24,14 @@ type messageEvent struct {
 	m client.Message
 }
 
+type nickEvent struct {
+	n client.Nickname
+}
+
 func (joinEvent) isEvent()    {}
 func (leaveEvent) isEvent()   {}
 func (messageEvent) isEvent() {}
+func (nickEvent) isEvent()    {}
 
 type Hub struct {
 	clients    map[*client.Client]string
@@ -45,6 +50,7 @@ func New() *Hub {
 func (h *Hub) Register(c *client.Client)   { h.events <- joinEvent{c: c} }
 func (h *Hub) Unregister(c *client.Client) { h.events <- leaveEvent{c: c} }
 func (h *Hub) Broadcast(m client.Message)  { h.events <- messageEvent{m: m} }
+func (h *Hub) Nickname(n client.Nickname)  { h.events <- nickEvent{n: n} }
 
 func (h *Hub) Run() {
 	for e := range h.events {
@@ -68,6 +74,11 @@ func (h *Hub) Run() {
 			if name, ok := h.clients[ev.m.From]; ok {
 				line := fmt.Sprintf("%s: %s", name, ev.m.Text)
 				h.sendToAllExcept(ev.m.From, line)
+			}
+		case nickEvent:
+			name := ev.n.Nickname
+			if !h.nameTaken(name, ev.n.User) {
+				h.clients[ev.n.User] = name
 			}
 		default:
 			log.Printf("Hub: unknown event type %T", e)

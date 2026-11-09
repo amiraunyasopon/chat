@@ -26,7 +26,7 @@ func Run(addr string) error {
 			log.Println("Error accepting conn:", err)
 			continue
 		}
-		cl := client.New(conn, h.Broadcast, h.Unregister)
+		cl := client.New(conn, h.Broadcast, h.Unregister, h.Nickname)
 		h.Register(cl)
 		go cl.WriteLoop()
 		go cl.Run()
