@@ -6,11 +6,13 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 
 	"chat/internal/protocol"
 )
 
 const outBuffer = 16
+const idleTimeout = 10 * time.Minute
 
 type Message struct {
 	From *Client
@@ -79,6 +81,8 @@ func (c *Client) Shutdown() {
 func (c *Client) WriteLoop() {
 	defer c.Conn.Close()
 	for line := range c.out {
+		c.Conn.SetWriteDeadline(time.Now().Add(idleTimeout))
+
 		if _, err := fmt.Fprintln(c.Conn, line); err != nil {
 			log.Printf("Write error: %v", err)
 			return
@@ -92,9 +96,13 @@ func (c *Client) Run() {
 
 	reader := bufio.NewReader(c.Conn)
 	for {
+		c.Conn.SetReadDeadline(time.Now().Add(idleTimeout))
+
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			if err == io.EOF {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				log.Println("Client idle timeout:", c.Conn.RemoteAddr())
+			} else if err == io.EOF {
 				log.Println("Client disconnected:", c.Conn.RemoteAddr())
 			} else {
 				log.Printf("Read error: %v", err)
