@@ -9,17 +9,18 @@ at runtime:
 docker build -t chat-server .
 docker run --rm \
   -p 8080:8080 \
+  -p 8081:8081 \
   -v "$PWD/server.crt:/tls/server.crt:ro" \
   -v "$PWD/server.key:/tls/server.key:ro" \
   -e TLS_CERT_FILE=/tls/server.crt \
   -e TLS_KEY_FILE=/tls/server.key \
-  chat-server
+  chat-server 8080 8081
 ```
 
 `CHAT_PORT` changes the port the server listens on inside the container. A
-positional command-line port overrides `CHAT_PORT`, as it does when running the
-server directly. `TLS_CERT_FILE` and `TLS_KEY_FILE` default to `server.crt` and
-`server.key`.
+positional first argument overrides `CHAT_PORT`. `WS_PORT` changes the HTTP and
+WebSocket port, and a positional second argument overrides `WS_PORT`.
+`TLS_CERT_FILE` and `TLS_KEY_FILE` default to `server.crt` and `server.key`.
 
 Alternatively, use Docker Compose:
 

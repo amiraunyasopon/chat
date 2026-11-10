@@ -3,19 +3,29 @@ package server
 import (
 	"crypto/tls"
 	"log"
+	"net/http"
 	"os"
 
 	"chat/internal/client"
+	"chat/internal/httpserver"
 	"chat/internal/hub"
 )
 
 func Run() error {
-	port := os.Getenv("CHAT_PORT")
-	if port == "" {
-		port = "8080"
+	chatPort := os.Getenv("CHAT_PORT")
+	if chatPort == "" {
+		chatPort = "8080"
 	}
 	if len(os.Args) > 1 {
-		port = os.Args[1]
+		chatPort = os.Args[1]
+	}
+
+	wsPort := os.Getenv("WS_PORT")
+	if wsPort == "" {
+		wsPort = "8081"
+	}
+	if len(os.Args) > 2 {
+		wsPort = os.Args[2]
 	}
 
 	certFile := os.Getenv("TLS_CERT_FILE")
@@ -36,7 +46,7 @@ func Run() error {
 		Certificates: []tls.Certificate{cert},
 	}
 
-	listener, err := tls.Listen("tcp", ":"+port, config)
+	listener, err := tls.Listen("tcp", ":"+chatPort, config)
 	if err != nil {
 		return err
 	}
@@ -45,7 +55,14 @@ func Run() error {
 	h := hub.New()
 	go h.Run()
 
-	log.Println("Chat server listening on", ":"+port)
+	go func() {
+		log.Println("HTTP server listening on", ":"+wsPort)
+		if err := http.ListenAndServe(":"+wsPort, httpserver.New(h)); err != nil {
+			log.Println("HTTP server stopped:", err)
+		}
+	}()
+
+	log.Println("Chat server listening on", ":"+chatPort)
 
 	for {
 		conn, err := listener.Accept()

@@ -4,9 +4,12 @@ services:
       context: .
     ports:
       - "8080:8080"
+      - "8081:8081"
     volumes:
       - ./server.crt:/tls/server.crt:ro
       - ./server.key:/tls/server.key:ro
     environment:
+      CHAT_PORT: 8080
+      WS_PORT: 8081
       TLS_CERT_FILE: /tls/server.crt
       TLS_KEY_FILE: /tls/server.key
