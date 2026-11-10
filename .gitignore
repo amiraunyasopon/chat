@@ -1,0 +1,10 @@
+# TLS development credentials
+server.key
+server.crt
+
+# Go build output
+/bin/
+/dist/
+
+# macOS
+.DS_Store
