@@ -33,25 +33,25 @@ type Switch struct {
 	Room string
 }
 
-type Client struct {
-	Conn          net.Conn
-	out           chan string
-	broadcast     func(Message)
-	leave         func(*Client)
-	nickname      func(Nickname)
-	directMessage func(DirectMessage)
-	switchRoom    func(Switch)
+type Handler interface {
+	Unregister(*Client)
+	Broadcast(Message)
+	Nickname(Nickname)
+	DirectMessage(DirectMessage)
+	JoinRoom(Switch)
 }
 
-func New(conn net.Conn, broadcast func(Message), leave func(*Client), nickname func(Nickname), directMessage func(DirectMessage), switchRoom func(Switch)) *Client {
+type Client struct {
+	Conn    net.Conn
+	out     chan string
+	handler Handler
+}
+
+func New(conn net.Conn, handler Handler) *Client {
 	return &Client{
-		Conn:          conn,
-		out:           make(chan string, outBuffer),
-		broadcast:     broadcast,
-		leave:         leave,
-		nickname:      nickname,
-		directMessage: directMessage,
-		switchRoom:    switchRoom,
+		Conn:    conn,
+		out:     make(chan string, outBuffer),
+		handler: handler,
 	}
 }
 
@@ -81,7 +81,7 @@ func (c *Client) WriteLoop() {
 }
 
 func (c *Client) Run() {
-	defer c.leave(c)
+	defer c.handler.Unregister(c)
 	log.Println("Client connected:", c.Conn.RemoteAddr())
 
 	reader := bufio.NewReader(c.Conn)
@@ -114,20 +114,20 @@ func (c *Client) Run() {
 			if cmd.Args == "" {
 				c.Send("ERR usage: MSG <text>")
 			} else {
-				c.broadcast(Message{From: c, Text: cmd.Args})
+				c.handler.Broadcast(Message{From: c, Text: cmd.Args})
 			}
 		case "NICK":
 			if cmd.Args == "" {
 				c.Send("ERR usage: NICK <text>")
 			} else {
-				c.nickname(Nickname{User: c, Nickname: cmd.Args})
+				c.handler.Nickname(Nickname{User: c, Nickname: cmd.Args})
 			}
 		case "DM":
 			if cmd.Args == "" {
 				c.Send("ERR usage: DM <user> <text>")
 			} else {
 				if dm, ok := protocol.ParseDM(cmd.Args); ok {
-					c.directMessage(DirectMessage{From: c, To: dm.To, Text: dm.Message})
+					c.handler.DirectMessage(DirectMessage{From: c, To: dm.To, Text: dm.Message})
 				} else {
 					c.Send("ERR usage: DM <user> <text>")
 				}
@@ -136,7 +136,7 @@ func (c *Client) Run() {
 			if cmd.Args == "" {
 				c.Send("ERR usage: JOIN <room>")
 			} else {
-				c.switchRoom(Switch{User: c, Room: cmd.Args})
+				c.handler.JoinRoom(Switch{User: c, Room: cmd.Args})
 			}
 		case "QUIT":
 			c.Send("BYE")
