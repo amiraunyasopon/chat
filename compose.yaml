@@ -1,0 +1,12 @@
+services:
+  chat:
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server.crt:/tls/server.crt:ro
+      - ./server.key:/tls/server.key:ro
+    environment:
+      TLS_CERT_FILE: /tls/server.crt
+      TLS_KEY_FILE: /tls/server.key

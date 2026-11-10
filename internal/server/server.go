@@ -10,12 +10,24 @@ import (
 )
 
 func Run() error {
-	port := "8080"
+	port := os.Getenv("CHAT_PORT")
+	if port == "" {
+		port = "8080"
+	}
 	if len(os.Args) > 1 {
 		port = os.Args[1]
 	}
 
-	cert, err := tls.LoadX509KeyPair("server.crt", "server.key")
+	certFile := os.Getenv("TLS_CERT_FILE")
+	if certFile == "" {
+		certFile = "server.crt"
+	}
+	keyFile := os.Getenv("TLS_KEY_FILE")
+	if keyFile == "" {
+		keyFile = "server.key"
+	}
+
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return err
 	}

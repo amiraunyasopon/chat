@@ -1,0 +1,7 @@
+.git
+.gitignore
+.DS_Store
+server.crt
+server.key
+bin
+dist
