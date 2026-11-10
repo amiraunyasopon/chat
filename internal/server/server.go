@@ -32,7 +32,7 @@ func Run() error {
 			log.Println("Error accepting conn:", err)
 			continue
 		}
-		cl := client.New(conn, h.Broadcast, h.Unregister, h.Nickname, h.DirectMessage)
+		cl := client.New(conn, h.Broadcast, h.Unregister, h.Nickname, h.DirectMessage, h.JoinRoom)
 		h.Register(cl)
 		go cl.WriteLoop()
 		go cl.Run()

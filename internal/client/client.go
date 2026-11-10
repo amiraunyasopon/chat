@@ -28,6 +28,11 @@ type DirectMessage struct {
 	Text string
 }
 
+type Switch struct {
+	User *Client
+	Room string
+}
+
 type Client struct {
 	Conn          net.Conn
 	out           chan string
@@ -35,9 +40,10 @@ type Client struct {
 	leave         func(*Client)
 	nickname      func(Nickname)
 	directMessage func(DirectMessage)
+	switchRoom    func(Switch)
 }
 
-func New(conn net.Conn, broadcast func(Message), leave func(*Client), nickname func(Nickname), directMessage func(DirectMessage)) *Client {
+func New(conn net.Conn, broadcast func(Message), leave func(*Client), nickname func(Nickname), directMessage func(DirectMessage), switchRoom func(Switch)) *Client {
 	return &Client{
 		Conn:          conn,
 		out:           make(chan string, outBuffer),
@@ -45,6 +51,7 @@ func New(conn net.Conn, broadcast func(Message), leave func(*Client), nickname f
 		leave:         leave,
 		nickname:      nickname,
 		directMessage: directMessage,
+		switchRoom:    switchRoom,
 	}
 }
 
@@ -124,6 +131,12 @@ func (c *Client) Run() {
 				} else {
 					c.Send("ERR usage: DM <user> <text>")
 				}
+			}
+		case "JOIN":
+			if cmd.Args == "" {
+				c.Send("ERR usage: JOIN <room>")
+			} else {
+				c.switchRoom(Switch{User: c, Room: cmd.Args})
 			}
 		case "QUIT":
 			c.Send("BYE")
