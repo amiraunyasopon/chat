@@ -1,8 +1,8 @@
 package server
 
 import (
+	"crypto/tls"
 	"log"
-	"net"
 	"os"
 
 	"chat/internal/client"
@@ -15,7 +15,16 @@ func Run() error {
 		port = os.Args[1]
 	}
 
-	listener, err := net.Listen("tcp", ":"+port)
+	cert, err := tls.LoadX509KeyPair("server.crt", "server.key")
+	if err != nil {
+		return err
+	}
+
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	listener, err := tls.Listen("tcp", ":"+port, config)
 	if err != nil {
 		return err
 	}
