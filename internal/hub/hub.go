@@ -180,11 +180,13 @@ func (h *Hub) Run() {
 				ev.s.User.Send(fmt.Sprintf("OK %s joined", room.name))
 			}
 		case listClientsEvent:
-			if skip, ok := h.clients[ev.s.User]; ok {
+			if name, ok := h.clients[ev.s.User]; ok {
 				room := h.clientRoom[ev.s.User]
 				clientNames := make([]string, 0, len(room.clients))
 				for c := range room.clients {
-					if h.clients[c] != skip {
+					if h.clients[c] == name {
+						clientNames = append(clientNames, fmt.Sprintf("* %s", name))
+					} else {
 						clientNames = append(clientNames, h.clients[c])
 					}
 				}
@@ -192,17 +194,17 @@ func (h *Hub) Run() {
 				ev.s.User.Send(strings.Join(clientNames, ", "))
 			}
 		case listRoomsEvent:
-			otherRoomNames := make([]string, 0, len(h.rooms))
+			roomNames := make([]string, 0, len(h.rooms))
 			currentRoomName := h.clientRoom[ev.r.User].name
 			for _, r := range h.rooms {
 				if r.name == currentRoomName {
-					otherRoomNames = append(otherRoomNames, fmt.Sprintf("* %s", currentRoomName))
+					roomNames = append(roomNames, fmt.Sprintf("* %s", currentRoomName))
 				} else {
-					otherRoomNames = append(otherRoomNames, r.name)
+					roomNames = append(roomNames, r.name)
 				}
 			}
-			sort.Strings(otherRoomNames)
-			ev.r.User.Send(strings.Join(otherRoomNames, ", "))
+			sort.Strings(roomNames)
+			ev.r.User.Send(strings.Join(roomNames, ", "))
 		default:
 			log.Printf("Hub: unknown event type %T", e)
 		}
