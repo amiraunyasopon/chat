@@ -138,6 +138,12 @@ func (c *Client) Run() {
 			} else {
 				c.handler.JoinRoom(Switch{User: c, Room: cmd.Args})
 			}
+		case "LEAVE":
+			if cmd.Args != "" {
+				c.Send("ERR usage: LEAVE")
+			} else {
+				c.handler.JoinRoom(Switch{User: c, Room: "lobby"})
+			}
 		case "QUIT":
 			c.Send("BYE")
 			return

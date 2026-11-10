@@ -149,6 +149,7 @@ func (h *Hub) Run() {
 				}
 				room, roomFound := h.findRoom(ev.s.Room)
 				if roomFound && room == h.clientRoom[ev.s.User] {
+					ev.s.User.Send(fmt.Sprintf("ERR Already in Room %s", ev.s.Room))
 					continue
 				}
 				if !roomFound {
