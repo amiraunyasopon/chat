@@ -33,12 +33,18 @@ type Switch struct {
 	Room string
 }
 
+type Redirect struct {
+	User *Client
+}
+
 type Handler interface {
 	Unregister(*Client)
 	Broadcast(Message)
 	Nickname(Nickname)
 	DirectMessage(DirectMessage)
 	JoinRoom(Switch)
+	ListClientsInRoom(Switch)
+	ListRooms(Redirect)
 }
 
 type Client struct {
@@ -143,6 +149,18 @@ func (c *Client) Run() {
 				c.Send("ERR usage: LEAVE")
 			} else {
 				c.handler.JoinRoom(Switch{User: c, Room: "lobby"})
+			}
+		case "WHO":
+			if cmd.Args != "" {
+				c.Send("ERR usage: WHO")
+			} else {
+				c.handler.ListClientsInRoom(Switch{User: c, Room: cmd.Args})
+			}
+		case "ROOMS":
+			if cmd.Args != "" {
+				c.Send("ERR usage: ROOMS")
+			} else {
+				c.handler.ListRooms(Redirect{User: c})
 			}
 		case "QUIT":
 			c.Send("BYE")

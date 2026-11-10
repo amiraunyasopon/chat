@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -42,12 +43,22 @@ type joinRoomEvent struct {
 	s client.Switch
 }
 
+type listClientsEvent struct {
+	s client.Switch
+}
+
+type listRoomsEvent struct {
+	r client.Redirect
+}
+
 func (joinEvent) isEvent()          {}
 func (leaveEvent) isEvent()         {}
 func (messageEvent) isEvent()       {}
 func (nickEvent) isEvent()          {}
 func (directMessageEvent) isEvent() {}
 func (joinRoomEvent) isEvent()      {}
+func (listClientsEvent) isEvent()   {}
+func (listRoomsEvent) isEvent()     {}
 
 type Hub struct {
 	clients    map[*client.Client]string // client : nick
@@ -89,6 +100,8 @@ func (h *Hub) Broadcast(m client.Message)           { h.events <- messageEvent{m
 func (h *Hub) Nickname(n client.Nickname)           { h.events <- nickEvent{n: n} }
 func (h *Hub) DirectMessage(d client.DirectMessage) { h.events <- directMessageEvent{d: d} }
 func (h *Hub) JoinRoom(s client.Switch)             { h.events <- joinRoomEvent{s: s} }
+func (h *Hub) ListClientsInRoom(s client.Switch)    { h.events <- listClientsEvent{s: s} }
+func (h *Hub) ListRooms(r client.Redirect)          { h.events <- listRoomsEvent{r: r} }
 
 func (h *Hub) Run() {
 	for e := range h.events {
@@ -166,6 +179,30 @@ func (h *Hub) Run() {
 				h.sendToAllExcept(room, ev.s.User, join)
 				ev.s.User.Send(fmt.Sprintf("OK %s joined", room.name))
 			}
+		case listClientsEvent:
+			if skip, ok := h.clients[ev.s.User]; ok {
+				room := h.clientRoom[ev.s.User]
+				clientNames := make([]string, 0, len(room.clients))
+				for c := range room.clients {
+					if h.clients[c] != skip {
+						clientNames = append(clientNames, h.clients[c])
+					}
+				}
+				sort.Strings(clientNames)
+				ev.s.User.Send(strings.Join(clientNames, ", "))
+			}
+		case listRoomsEvent:
+			otherRoomNames := make([]string, 0, len(h.rooms))
+			currentRoomName := h.clientRoom[ev.r.User].name
+			for _, r := range h.rooms {
+				if r.name == currentRoomName {
+					otherRoomNames = append(otherRoomNames, fmt.Sprintf("* %s", currentRoomName))
+				} else {
+					otherRoomNames = append(otherRoomNames, r.name)
+				}
+			}
+			sort.Strings(otherRoomNames)
+			ev.r.User.Send(strings.Join(otherRoomNames, ", "))
 		default:
 			log.Printf("Hub: unknown event type %T", e)
 		}
