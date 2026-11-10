@@ -91,6 +91,9 @@ func (h *Hub) Run() {
 				delete(h.nicks, h.clients[ev.n.User])
 				h.clients[ev.n.User] = name
 				h.nicks[name] = ev.n.User
+				ev.n.User.Send(fmt.Sprintf("SUCCESS nickname is now %s", name))
+			} else {
+				ev.n.User.Send(fmt.Sprintf("ERR %s is taken", name))
 			}
 		case directMessageEvent:
 			if name, ok := h.clients[ev.d.From]; ok {
